@@ -38,54 +38,53 @@
             </div>
 
             <div id="view-history" class="app-view" style="display:none">
-                <h2 class="section-title">Storico Referti</h2>
+                <h2 class="section-title">Storico Esami</h2>
                 <div id="historyList"></div>
             </div>
 
             <div id="view-settings" class="app-view" style="display:none">
-                <h2 class="section-title">Configurazione Esami</h2>
+                <h2 class="section-title">Dizionario Parametri</h2>
                 <div class="card">
                     <form id="paramConfigForm">
-                        <input type="text" id="confName" placeholder="Nome esame" required>
+                        <input type="text" id="confName" placeholder="Nome (es. Magnesio)" required>
                         <div style="display:flex; gap:10px">
                             <input type="text" id="confUnit" placeholder="Unità" required style="flex:1">
                             <input type="number" id="confMin" placeholder="Min" step="0.1" style="flex:1">
                             <input type="number" id="confMax" placeholder="Max" step="0.1" style="flex:1">
                         </div>
-                        <button type="submit" class="button primary-button">Aggiungi al Dizionario</button>
+                        <button type="submit" class="button primary-button">Aggiungi Parametro</button>
                     </form>
                 </div>
                 <div id="dictionaryList"></div>
+                
+                <h2 class="section-title">Dati</h2>
+                <button id="btnExportCSV" class="button secondary-button">Esporta CSV</button>
+                <button id="btnBackup" class="button secondary-button">Backup JSON</button>
+                <label for="restoreFile" class="button secondary-button" style="display:block; text-align:center; cursor:pointer">Ripristina Backup</label>
+                <input type="file" id="restoreFile" style="display:none">
             </div>
         </main>
 
         <div id="examModal" class="modal">
             <div class="modal-content">
                 <span class="close-button">&times;</span>
-                <h3>Nuovo Referto</h3>
-                <form id="reportForm">
-                    <div style="display: flex; gap: 10px;">
+                <h3 style="margin:0 0 15px 0">Nuovo Esame</h3>
+                <form id="examForm">
+                    <label>Parametro</label>
+                    <select id="examParamSelect" class="ios-select" required></select>
+
+                    <div style="display: flex; gap: 12px; margin-top:10px">
                         <div style="flex: 1;">
                             <label>Data</label>
-                            <input type="date" id="reportDate" required>
+                            <input type="date" id="examDate" required>
                         </div>
                         <div style="flex: 1;">
-                            <label>Luogo</label>
-                            <input type="text" id="reportLocation" placeholder="Es: Lab Analisi" required>
+                            <label>Valore</label>
+                            <input type="number" id="examValue" step="0.1" required>
                         </div>
                     </div>
 
-                    <div id="tempExamsList" class="card" style="margin: 10px 0; background: #f9f9f9; padding: 10px; min-height: 40px;">
-                        </div>
-
-                    <div style="background: #eee; padding: 10px; border-radius: 12px;">
-                        <label>Aggiungi Parametro</label>
-                        <select id="examParamSelect" class="ios-select"></select>
-                        <input type="number" id="examValue" step="0.1" placeholder="Valore">
-                        <button type="button" id="btnAddRow" class="button secondary-button">+ Inserisci Riga</button>
-                    </div>
-
-                    <button type="submit" class="button primary-button" style="margin-top:20px">Salva Report Completo</button>
+                    <button type="submit" class="button primary-button" style="margin-top:20px">Salva Esame</button>
                 </form>
             </div>
         </div>
