@@ -307,30 +307,24 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
     }
 
-    // ---- GRIGLIA: ordine per severità, poi pinned, poi altri ----
-    const PINNED = ['COLESTEROLO', 'COLESTEROLO HDL', 'COLESTEROLO LDL', 'TRIGLICERIDI', 'GLUCOSIO', 'VITAMINA D'];
-
-    // Calcola severità per ogni parametro per l'ordinamento
+    // ---- GRIGLIA: tutti i parametri, ordinati per severità poi alfabeticamente ----
     function getSortKey(p) {
       const h = getAllValuesForParam(p.name);
       const last = h[0]?.val ?? null;
       const st = statusForValue(p, last);
       const sev = severityForValue(p, last);
-      if (!st.out) return 10; // normale
+      if (!st.out) return last !== null ? 10 : 20; // normale con dati, poi senza dati
       if (sev.level === 'severe')   return 1;
       if (sev.level === 'moderate') return 2;
       if (sev.level === 'light')    return 3;
       return 4;
     }
 
-    const pinnedParams = PINNED.map(name => dict.find(p => normName(p.name) === normName(name))).filter(Boolean);
-    const otherParams  = dict.filter(p => !PINNED.some(n => normName(n) === normName(p.name)));
-
-    // Ordina entrambi i gruppi per severità
-    pinnedParams.sort((a, b) => getSortKey(a) - getSortKey(b));
-    otherParams.sort((a, b) => getSortKey(a) - getSortKey(b));
-
-    const orderedDict = [...pinnedParams, ...otherParams];
+    const orderedDict = [...dict].sort((a, b) => {
+      const sk = getSortKey(a) - getSortKey(b);
+      if (sk !== 0) return sk;
+      return a.name.localeCompare(b.name, 'it'); // a parità di severità, ordine alfabetico
+    });
 
     grid.innerHTML = orderedDict.map(p => {
       const historyDesc = getAllValuesForParam(p.name);
@@ -364,7 +358,6 @@ document.addEventListener('DOMContentLoaded', () => {
       // Mini sparkline SVG inline (molto più bella delle barre)
       const svgSparkline = generateSVGSparkline(historyDesc.slice(0,8).reverse(), p.min, p.max, accent.color);
 
-      const isPinned = PINNED.some(n => normName(n) === normName(p.name));
       const noData = last === null;
       const sev = severityForValue(p, last);
 
@@ -384,7 +377,7 @@ document.addEventListener('DOMContentLoaded', () => {
           box-shadow: var(--shadow-sm);
           display: flex; flex-direction: column; gap: 6px;
           min-height: 130px;
-          opacity: ${!isPinned && !st.out ? '0.5' : '1'};
+          opacity: ${noData && !st.out ? '0.45' : '1'};
           position: relative; overflow: hidden;
           transition: transform 0.15s, box-shadow 0.15s;
           cursor: ${noData ? 'default' : 'pointer'};
