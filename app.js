@@ -309,11 +309,11 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
     }
 
-    // ---- GRIGLIA PARAMETRI stile iOS Health ----
-    // Mostra tutti i parametri con dati, poi quelli senza dati in fondo (dimmed)
-    const withData    = dict.filter(p => getAllValuesForParam(p.name).length > 0);
-    const withoutData = dict.filter(p => getAllValuesForParam(p.name).length === 0);
-    const orderedDict = [...withData, ...withoutData];
+    // ---- GRIGLIA: solo i 6 parametri chiave, gli altri dimmed in fondo ----
+    const PINNED = ['COLESTEROLO', 'COLESTEROLO HDL', 'COLESTEROLO LDL', 'TRIGLICERIDI', 'GLUCOSIO', 'VITAMINA D'];
+    const pinnedParams  = PINNED.map(name => dict.find(p => normName(p.name) === normName(name))).filter(Boolean);
+    const otherParams   = dict.filter(p => !PINNED.includes(normName(p.name)));
+    const orderedDict   = [...pinnedParams, ...otherParams];
 
     grid.innerHTML = orderedDict.map(p => {
       const historyDesc = getAllValuesForParam(p.name);
@@ -347,6 +347,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // Mini sparkline SVG inline (molto più bella delle barre)
       const svgSparkline = generateSVGSparkline(historyDesc.slice(0,8).reverse(), p.min, p.max, accent.color);
 
+      const isPinned = PINNED.includes(normName(p.name));
       const noData = last === null;
 
       return `
@@ -358,7 +359,7 @@ document.addEventListener('DOMContentLoaded', () => {
           box-shadow: var(--shadow-sm);
           display: flex; flex-direction: column; gap: 6px;
           min-height: 130px;
-          opacity: ${noData ? '0.45' : '1'};
+          opacity: ${!isPinned ? '0.45' : noData ? '0.55' : '1'};
           position: relative; overflow: hidden;
           transition: transform 0.15s, box-shadow 0.15s;
           cursor: ${noData ? 'default' : 'pointer'};
@@ -525,7 +526,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!sel) return;
 
     const prev = sel.value;
-    sel.innerHTML = dict.map(u => `<option value="${escapeAttr(u.name)}">${escapeHTML(u.name)}</option>`).join('');
+    const sortedDict = [...dict].sort((a, b) => a.name.localeCompare(b.name, 'it'));
+    sel.innerHTML = sortedDict.map(u => `<option value="${escapeAttr(u.name)}">${escapeHTML(u.name)}</option>`).join('');
     if (prev && dict.some(d => d.name === prev)) sel.value = prev;
 
     const redraw = () => {
@@ -563,79 +565,84 @@ document.addEventListener('DOMContentLoaded', () => {
       /** @type {any[]} */
       const datasets = [];
 
-      // La banda verde va mostrata in modalità "values" se c'è almeno min o max.
-      // Usiamo almeno 2 label sull'asse X per disegnare la banda: se c'è solo 1 punto
-      // duplichiamo artificialmente le label in modo che Chart.js possa riempire l'area.
-      const bandLabels = pts.length >= 2 ? pts.map(p => p.x) : pts.length === 1 ? [pts[0].x, pts[0].x] : ['—', '—'];
-      const bandCount  = bandLabels.length;
+      // Costruiamo le label dell'asse X: servono almeno 2 punti per riempire l'area.
+      // Se c'è 1 solo punto lo duplichiamo; se 0 punti usiamo placeholder.
+      const xLabels = pts.length >= 2 ? pts.map(p => p.x)
+                    : pts.length === 1 ? [pts[0].x, pts[0].x]
+                    : ['inizio', 'fine'];
+      const n = xLabels.length;
 
       if (mode === 'values' && (hasMin || hasMax)) {
-        // Determina i limiti della banda
-        const bandMin = hasMin ? minVal : null;
-        const bandMax = hasMax ? maxVal : null;
-
-        if (bandMin !== null && bandMax !== null) {
-          // Banda tra min e max
+        if (hasMin && hasMax) {
+          // Dataset 0: linea inferiore (MIN) — invisibile, base del fill
           datasets.push({
             label: 'MIN_BAND',
-            data: Array(bandCount).fill(bandMin),
-            borderColor: 'rgba(52,199,89,0.5)',
+            data: Array(n).fill(minVal),
+            borderColor: 'rgba(52,199,89,0.55)',
             borderWidth: 1.5,
-            borderDash: [4, 3],
+            borderDash: [5, 4],          // tratteggiata
             pointRadius: 0,
+            pointHitRadius: 0,
             fill: false,
+            tension: 0,
           });
+          // Dataset 1: linea superiore (MAX) — riempie verso il dataset 0
           datasets.push({
             label: 'MAX_BAND',
-            data: Array(bandCount).fill(bandMax),
-            borderColor: 'rgba(52,199,89,0.5)',
+            data: Array(n).fill(maxVal),
+            borderColor: 'rgba(52,199,89,0.55)',
             borderWidth: 1.5,
-            borderDash: [4, 3],
+            borderDash: [5, 4],
             pointRadius: 0,
-            backgroundColor: 'rgba(52,199,89,0.10)',
-            fill: '-1',
+            pointHitRadius: 0,
+            backgroundColor: 'rgba(52,199,89,0.12)',
+            fill: 0,                     // riempie verso il dataset all'indice 0
+            tension: 0,
           });
-        } else if (bandMax !== null) {
-          // Solo max: banda da 0 a max
-          datasets.push({
-            label: 'ZERO_BAND',
-            data: Array(bandCount).fill(0),
-            borderColor: 'rgba(0,0,0,0)',
-            borderWidth: 0,
-            pointRadius: 0,
-            fill: false,
-          });
+        } else if (hasMax) {
+          // Solo MAX: linea tratteggiata senza fill
           datasets.push({
             label: 'MAX_BAND',
-            data: Array(bandCount).fill(bandMax),
-            borderColor: 'rgba(52,199,89,0.5)',
+            data: Array(n).fill(maxVal),
+            borderColor: 'rgba(52,199,89,0.55)',
             borderWidth: 1.5,
-            borderDash: [4, 3],
+            borderDash: [5, 4],
             pointRadius: 0,
-            backgroundColor: 'rgba(52,199,89,0.10)',
-            fill: '-1',
+            pointHitRadius: 0,
+            fill: false,
+            tension: 0,
           });
-        } else if (bandMin !== null) {
-          // Solo min: linea tratteggiata verde a min
+        } else {
+          // Solo MIN: linea tratteggiata senza fill
           datasets.push({
             label: 'MIN_BAND',
-            data: Array(bandCount).fill(bandMin),
-            borderColor: 'rgba(52,199,89,0.5)',
+            data: Array(n).fill(minVal),
+            borderColor: 'rgba(52,199,89,0.55)',
             borderWidth: 1.5,
-            borderDash: [4, 3],
+            borderDash: [5, 4],
             pointRadius: 0,
+            pointHitRadius: 0,
             fill: false,
+            tension: 0,
           });
         }
       }
 
+      // Dataset dati reali — sempre in ultimo così sta sopra la banda
+      const mainData = pts.length === 1 ? [series[0], series[0]] : series;
       datasets.push({
         label,
-        data: series,
+        data: mainData,
         borderColor: '#007AFF',
-        tension: 0.3,
+        backgroundColor: 'rgba(0,122,255,0.08)',
+        tension: 0.35,
         fill: false,
         spanGaps: true,
+        pointRadius: (ctx) => ctx.dataIndex === mainData.length - 1 ? 4 : 2,
+        pointBackgroundColor: '#007AFF',
+        pointBorderColor: 'white',
+        pointBorderWidth: 1.5,
+        pointHoverRadius: 6,
       });
 
       const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -645,7 +652,7 @@ document.addEventListener('DOMContentLoaded', () => {
       tChart = new Chart(ctx, {
         type: 'line',
         data: {
-          labels: pts.length > 0 ? pts.map(p => p.x) : bandLabels,
+          labels: xLabels,
           datasets
         },
         options: {
