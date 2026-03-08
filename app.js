@@ -355,29 +355,35 @@ document.addEventListener('DOMContentLoaded', () => {
         else { trendIcon = '→'; }
       }
 
-      // Mini sparkline SVG inline (molto più bella delle barre)
       const svgSparkline = generateSVGSparkline(historyDesc.slice(0,8).reverse(), p.min, p.max, accent.color);
 
       const noData = last === null;
       const sev = severityForValue(p, last);
 
-      // Bordo sinistro colorato per severità
-      const severityBorder = st.out
-        ? (sev.level === 'severe'   ? '4px solid var(--c-red)'
-         : sev.level === 'moderate' ? '4px solid var(--c-orange)'
-         :                            '4px solid var(--c-yellow)')
-        : '0.33px solid var(--separator)';
+      // Data ultimo esame
+      const lastDate = historyDesc[0]?.date
+        ? new Date(historyDesc[0].date).toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit', year:'2-digit' })
+        : null;
+
+      // Bordo: verde se normale con dati, colorato per severità se anomalo, grigio se no dati
+      const cardBorder = noData
+        ? '0.33px solid var(--separator)'
+        : st.out
+          ? (sev.level === 'severe'   ? '1.5px solid var(--c-red)'
+           : sev.level === 'moderate' ? '1.5px solid var(--c-orange)'
+           :                            '1.5px solid var(--c-yellow)')
+          : '1.5px solid var(--c-green)';
 
       return `
         <div class="metric-card-v2" style="
           background: var(--surface);
           border-radius: var(--radius-lg);
           padding: 14px;
-          border: ${severityBorder};
+          border: ${cardBorder};
           box-shadow: var(--shadow-sm);
           display: flex; flex-direction: column; gap: 6px;
           min-height: 130px;
-          opacity: ${noData && !st.out ? '0.45' : '1'};
+          opacity: ${noData ? '0.45' : '1'};
           position: relative; overflow: hidden;
           transition: transform 0.15s, box-shadow 0.15s;
           cursor: ${noData ? 'default' : 'pointer'};
@@ -387,7 +393,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <div style="position:absolute;bottom:-16px;right:-16px;width:72px;height:72px;
             border-radius:999px;background:rgba(${accent.rgb},0.08);pointer-events:none"></div>
 
-          <!-- Header: nome + icona stato -->
+          <!-- Header: nome + pallino stato -->
           <div style="display:flex;align-items:center;justify-content:space-between;gap:4px">
             <div style="font-size:10px;font-weight:700;color:var(--label2);
               text-transform:uppercase;letter-spacing:0.3px;
@@ -416,58 +422,18 @@ document.addEventListener('DOMContentLoaded', () => {
             ${svgSparkline}
           </div>
 
-          <!-- Footer: range -->
-          <div style="font-size:9px;font-weight:600;color:var(--label3);letter-spacing:0.1px">
-            ${noData ? 'Nessun dato' : (st.out ? `<span style="color:var(--c-red);font-weight:700">${st.state==='HIGH'?'SOPRA':'SOTTO'} RANGE</span>` : formatRange(p))}
+          <!-- Footer: range + data -->
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:4px">
+            <div style="font-size:9px;font-weight:600;color:var(--label3);letter-spacing:0.1px">
+              ${noData ? 'Nessun dato' : (st.out ? `<span style="color:${sev.level==='severe'?'var(--c-red)':sev.level==='moderate'?'var(--c-orange)':'var(--c-yellow)'};font-weight:700">${st.state==='HIGH'?'↑ SOPRA':'↓ SOTTO'} RANGE</span>` : formatRange(p))}
+            </div>
+            ${lastDate ? `<div style="font-size:9px;color:var(--label3);font-weight:500;flex-shrink:0">${lastDate}</div>` : ''}
           </div>
         </div>`;
     }).join('');
 
-    // ---- ANOMALIE ----
-    if (alertSection && alertList) {
-      let alertsHtml = '';
-      let shareText = '*REPORT ANOMALIE ESAMI* 📄\n\n';
-      anomalies
-        .sort((a, b) => (a.sev.ratio ?? 0) < (b.sev.ratio ?? 0) ? 1 : -1)
-        .forEach(({ p, last, st, sev, history }) => {
-          const arrow = st.state === 'HIGH' ? '↑' : '↓';
-          const { delta, pct } = deltaInfo(history);
-          const dTxt = delta === null ? '' : ` · Δ ${delta > 0 ? '+' : ''}${fmt(delta, p.decimals)}${pct === null ? '' : ` (${fmt(pct,1)}%)`}`;
-          const sevColor = sev.level === 'severe' ? 'var(--c-red)' : sev.level === 'moderate' ? 'var(--c-orange)' : 'var(--c-yellow)';
-
-          alertsHtml += `
-            <div style="background:var(--surface);border-radius:var(--radius-md);
-              border:0.33px solid var(--separator);border-left:4px solid var(--c-red);
-              padding:14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:12px">
-              <div style="min-width:0">
-                <div style="font-size:14px;font-weight:700;color:var(--label)">${escapeHTML(p.name)}</div>
-                <div style="font-size:11px;color:var(--label2);margin-top:2px">${formatRange(p)}${dTxt}</div>
-                <div style="margin-top:6px">
-                  <span style="display:inline-block;padding:3px 8px;border-radius:999px;
-                    font-size:10px;font-weight:800;
-                    background:rgba(255,59,48,0.1);color:${sevColor}">
-                    ${sev.label.toUpperCase()}
-                  </span>
-                </div>
-              </div>
-              <div style="text-align:right;flex-shrink:0">
-                <div style="font-size:22px;font-weight:800;color:var(--c-red);letter-spacing:-0.5px">
-                  ${fmt(last, p.decimals)}<span style="font-size:14px">${arrow}</span>
-                </div>
-                <div style="font-size:10px;color:var(--label2);font-weight:600">${escapeHTML(p.unit||'')}</div>
-              </div>
-            </div>`;
-          shareText += `• ${p.name}: ${fmt(last, p.decimals)} ${p.unit||''} ${arrow} (Range: ${p.min}-${p.max}, Severità: ${sev.label})${dTxt}\n`;
-        });
-
-      alertSection.style.display = anomalies.length > 0 ? 'block' : 'none';
-      alertList.innerHTML = alertsHtml;
-
-      const btnShare = document.getElementById('btnShareAnomalies');
-      if (btnShare) {
-        btnShare.onclick = () => window.open(`whatsapp://send?text=${encodeURIComponent(shareText)}`);
-      }
-    }
+    // ---- SEZIONE ANOMALIE: rimossa, le info sono già nelle card ----
+    if (alertSection) alertSection.style.display = 'none';
   }
 
   // ---- SVG Sparkline inline ----
