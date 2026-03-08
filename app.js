@@ -385,31 +385,79 @@ document.addEventListener('DOMContentLoaded', () => {
         label = `Media mobile (3) – ${pName}`;
       }
 
-      // Banda verde range min/max (se presenti)
-      const hasMin = pConfig && pConfig.min !== null && pConfig.min !== '' && pConfig.min !== undefined;
-      const hasMax = pConfig && pConfig.max !== null && pConfig.max !== '' && pConfig.max !== undefined;
+      // Banda verde range min/max
+      const hasMin = pConfig && pConfig.min !== null && pConfig.min !== '' && pConfig.min !== undefined && Number.isFinite(Number(pConfig.min));
+      const hasMax = pConfig && pConfig.max !== null && pConfig.max !== '' && pConfig.max !== undefined && Number.isFinite(Number(pConfig.max));
       const minVal = hasMin ? Number(pConfig.min) : null;
       const maxVal = hasMax ? Number(pConfig.max) : null;
 
       /** @type {any[]} */
       const datasets = [];
-      if (mode === 'values' && hasMin && hasMax && Number.isFinite(minVal) && Number.isFinite(maxVal)) {
-        datasets.push({
-          label: 'MIN',
-          data: pts.map(() => minVal),
-          borderColor: 'rgba(0,0,0,0)',
-          pointRadius: 0,
-          borderWidth: 0,
-        });
-        datasets.push({
-          label: 'RANGE',
-          data: pts.map(() => maxVal),
-          borderColor: 'rgba(0,0,0,0)',
-          backgroundColor: 'rgba(52, 199, 89, 0.14)',
-          pointRadius: 0,
-          borderWidth: 0,
-          fill: '-1',
-        });
+
+      // La banda verde va mostrata in modalità "values" se c'è almeno min o max.
+      // Usiamo almeno 2 label sull'asse X per disegnare la banda: se c'è solo 1 punto
+      // duplichiamo artificialmente le label in modo che Chart.js possa riempire l'area.
+      const bandLabels = pts.length >= 2 ? pts.map(p => p.x) : pts.length === 1 ? [pts[0].x, pts[0].x] : ['—', '—'];
+      const bandCount  = bandLabels.length;
+
+      if (mode === 'values' && (hasMin || hasMax)) {
+        // Determina i limiti della banda
+        const bandMin = hasMin ? minVal : null;
+        const bandMax = hasMax ? maxVal : null;
+
+        if (bandMin !== null && bandMax !== null) {
+          // Banda tra min e max
+          datasets.push({
+            label: 'MIN_BAND',
+            data: Array(bandCount).fill(bandMin),
+            borderColor: 'rgba(52,199,89,0.5)',
+            borderWidth: 1.5,
+            borderDash: [4, 3],
+            pointRadius: 0,
+            fill: false,
+          });
+          datasets.push({
+            label: 'MAX_BAND',
+            data: Array(bandCount).fill(bandMax),
+            borderColor: 'rgba(52,199,89,0.5)',
+            borderWidth: 1.5,
+            borderDash: [4, 3],
+            pointRadius: 0,
+            backgroundColor: 'rgba(52,199,89,0.10)',
+            fill: '-1',
+          });
+        } else if (bandMax !== null) {
+          // Solo max: banda da 0 a max
+          datasets.push({
+            label: 'ZERO_BAND',
+            data: Array(bandCount).fill(0),
+            borderColor: 'rgba(0,0,0,0)',
+            borderWidth: 0,
+            pointRadius: 0,
+            fill: false,
+          });
+          datasets.push({
+            label: 'MAX_BAND',
+            data: Array(bandCount).fill(bandMax),
+            borderColor: 'rgba(52,199,89,0.5)',
+            borderWidth: 1.5,
+            borderDash: [4, 3],
+            pointRadius: 0,
+            backgroundColor: 'rgba(52,199,89,0.10)',
+            fill: '-1',
+          });
+        } else if (bandMin !== null) {
+          // Solo min: linea tratteggiata verde a min
+          datasets.push({
+            label: 'MIN_BAND',
+            data: Array(bandCount).fill(bandMin),
+            borderColor: 'rgba(52,199,89,0.5)',
+            borderWidth: 1.5,
+            borderDash: [4, 3],
+            pointRadius: 0,
+            fill: false,
+          });
+        }
       }
 
       datasets.push({
@@ -428,7 +476,7 @@ document.addEventListener('DOMContentLoaded', () => {
       tChart = new Chart(ctx, {
         type: 'line',
         data: {
-          labels: pts.map(p => p.x),
+          labels: pts.length > 0 ? pts.map(p => p.x) : bandLabels,
           datasets
         },
         options: {
@@ -445,6 +493,7 @@ document.addEventListener('DOMContentLoaded', () => {
               borderWidth: 0.5,
               cornerRadius: 12,
               padding: 10,
+              filter: (item) => !['MIN_BAND','MAX_BAND','ZERO_BAND'].includes(item.dataset.label),
               callbacks: {
                 label: (tt) => {
                   const v = tt.parsed?.y;
