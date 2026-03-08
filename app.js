@@ -525,7 +525,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const prev = sel.value;
     const sortedDict = [...dict].sort((a, b) => a.name.localeCompare(b.name, 'it'));
-    sel.innerHTML = sortedDict.map(u => `<option value="${escapeAttr(u.name)}">${escapeHTML(u.name)}</option>`).join('');
+    sel.innerHTML = sortedDict.map(u => `<option value="${escapeHTML(u.name)}">${escapeHTML(u.name)}</option>`).join('');
     if (prev && dict.some(d => d.name === prev)) sel.value = prev;
 
     const redraw = () => {
@@ -795,7 +795,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function syncParamSelect() {
     if (!examParamSelect) return;
-    examParamSelect.innerHTML = dict.map(p => `<option value="${escapeAttr(p.name)}">${escapeHTML(p.name)}</option>`).join('');
+    examParamSelect.innerHTML = dict.map(p => `<option value="${escapeHTML(p.name)}">${escapeHTML(p.name)}</option>`).join('');
   }
 
   function syncExamValueStep() {
