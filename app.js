@@ -554,72 +554,39 @@ document.addEventListener('DOMContentLoaded', () => {
         label = `Media mobile (3) – ${pName}`;
       }
 
-      // Banda verde range min/max
-      const hasMin = pConfig != null && pConfig.min !== null && pConfig.min !== undefined && pConfig.min !== '' && Number.isFinite(Number(pConfig.min));
-      const hasMax = pConfig != null && pConfig.max !== null && pConfig.max !== undefined && pConfig.max !== '' && Number.isFinite(Number(pConfig.max));
+      // Banda verde range min/max — logica originale che funzionava
+      const hasMin = pConfig && pConfig.min !== null && pConfig.min !== '' && pConfig.min !== undefined;
+      const hasMax = pConfig && pConfig.max !== null && pConfig.max !== '' && pConfig.max !== undefined;
       const minVal = hasMin ? Number(pConfig.min) : null;
       const maxVal = hasMax ? Number(pConfig.max) : null;
 
+      // Se non ci sono punti, non possiamo disegnare nulla
       const xLabels = pts.length >= 2 ? pts.map(p => p.x)
                     : pts.length === 1 ? [pts[0].x, pts[0].x]
-                    : ['A', 'B'];
+                    : [];
       const n = xLabels.length;
 
       const datasets = [];
 
-      if (mode === 'values' && hasMin && hasMax) {
-        // Dataset 0: linea MIN — base del fill
+      if (mode === 'values' && hasMin && hasMax && Number.isFinite(minVal) && Number.isFinite(maxVal) && n > 0) {
         datasets.push({
-          label: 'MIN_BAND',
+          label: 'MIN',
           data: Array(n).fill(minVal),
-          borderColor: 'rgba(52,199,89,0.8)',
-          borderWidth: 2,
+          borderColor: 'rgba(0,0,0,0)',
           pointRadius: 0,
-          pointHitRadius: 0,
-          fill: false,
-          tension: 0,
-          segment: { borderDash: () => [6, 4] },
+          borderWidth: 0,
         });
-        // Dataset 1: linea MAX — fill verso dataset[0]
         datasets.push({
-          label: 'MAX_BAND',
+          label: 'RANGE',
           data: Array(n).fill(maxVal),
-          borderColor: 'rgba(52,199,89,0.8)',
-          borderWidth: 2,
+          borderColor: 'rgba(0,0,0,0)',
+          backgroundColor: 'rgba(52,199,89,0.14)',
           pointRadius: 0,
-          pointHitRadius: 0,
-          backgroundColor: 'rgba(52,199,89,0.15)',
-          fill: 0,
-          tension: 0,
-          segment: { borderDash: () => [6, 4] },
-        });
-      } else if (mode === 'values' && hasMax) {
-        datasets.push({
-          label: 'MAX_BAND',
-          data: Array(n).fill(maxVal),
-          borderColor: 'rgba(52,199,89,0.8)',
-          borderWidth: 2,
-          pointRadius: 0,
-          pointHitRadius: 0,
-          fill: false,
-          tension: 0,
-          segment: { borderDash: () => [6, 4] },
-        });
-      } else if (mode === 'values' && hasMin) {
-        datasets.push({
-          label: 'MIN_BAND',
-          data: Array(n).fill(minVal),
-          borderColor: 'rgba(52,199,89,0.8)',
-          borderWidth: 2,
-          pointRadius: 0,
-          pointHitRadius: 0,
-          fill: false,
-          tension: 0,
-          segment: { borderDash: () => [6, 4] },
+          borderWidth: 0,
+          fill: '-1',
         });
       }
 
-      // Dataset valori reali — sempre in ultimo
       const mainData = pts.length === 1 ? [series[0], series[0]] : series;
       datasets.push({
         label,
@@ -643,7 +610,7 @@ document.addEventListener('DOMContentLoaded', () => {
       tChart = new Chart(ctx, {
         type: 'line',
         data: {
-          labels: xLabels,
+          labels: xLabels.length > 0 ? xLabels : pts.map(p => p.x),
           datasets
         },
         options: {
