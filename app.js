@@ -307,11 +307,30 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
     }
 
-    // ---- GRIGLIA: solo i 6 parametri chiave, gli altri dimmed in fondo ----
+    // ---- GRIGLIA: ordine per severità, poi pinned, poi altri ----
     const PINNED = ['COLESTEROLO', 'COLESTEROLO HDL', 'COLESTEROLO LDL', 'TRIGLICERIDI', 'GLUCOSIO', 'VITAMINA D'];
-    const pinnedParams  = PINNED.map(name => dict.find(p => normName(p.name) === normName(name))).filter(Boolean);
-    const otherParams   = dict.filter(p => !PINNED.includes(normName(p.name)));
-    const orderedDict   = [...pinnedParams, ...otherParams];
+
+    // Calcola severità per ogni parametro per l'ordinamento
+    function getSortKey(p) {
+      const h = getAllValuesForParam(p.name);
+      const last = h[0]?.val ?? null;
+      const st = statusForValue(p, last);
+      const sev = severityForValue(p, last);
+      if (!st.out) return 10; // normale
+      if (sev.level === 'severe')   return 1;
+      if (sev.level === 'moderate') return 2;
+      if (sev.level === 'light')    return 3;
+      return 4;
+    }
+
+    const pinnedParams = PINNED.map(name => dict.find(p => normName(p.name) === normName(name))).filter(Boolean);
+    const otherParams  = dict.filter(p => !PINNED.some(n => normName(n) === normName(p.name)));
+
+    // Ordina entrambi i gruppi per severità
+    pinnedParams.sort((a, b) => getSortKey(a) - getSortKey(b));
+    otherParams.sort((a, b) => getSortKey(a) - getSortKey(b));
+
+    const orderedDict = [...pinnedParams, ...otherParams];
 
     grid.innerHTML = orderedDict.map(p => {
       const historyDesc = getAllValuesForParam(p.name);
@@ -345,19 +364,27 @@ document.addEventListener('DOMContentLoaded', () => {
       // Mini sparkline SVG inline (molto più bella delle barre)
       const svgSparkline = generateSVGSparkline(historyDesc.slice(0,8).reverse(), p.min, p.max, accent.color);
 
-      const isPinned = PINNED.includes(normName(p.name));
+      const isPinned = PINNED.some(n => normName(n) === normName(p.name));
       const noData = last === null;
+      const sev = severityForValue(p, last);
+
+      // Bordo sinistro colorato per severità
+      const severityBorder = st.out
+        ? (sev.level === 'severe'   ? '4px solid var(--c-red)'
+         : sev.level === 'moderate' ? '4px solid var(--c-orange)'
+         :                            '4px solid var(--c-yellow)')
+        : '0.33px solid var(--separator)';
 
       return `
         <div class="metric-card-v2" style="
           background: var(--surface);
           border-radius: var(--radius-lg);
           padding: 14px;
-          border: 0.33px solid var(--separator);
+          border: ${severityBorder};
           box-shadow: var(--shadow-sm);
           display: flex; flex-direction: column; gap: 6px;
           min-height: 130px;
-          opacity: ${!isPinned ? '0.45' : noData ? '0.55' : '1'};
+          opacity: ${!isPinned && !st.out ? '0.5' : '1'};
           position: relative; overflow: hidden;
           transition: transform 0.15s, box-shadow 0.15s;
           cursor: ${noData ? 'default' : 'pointer'};
