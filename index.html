@@ -17,8 +17,16 @@
 <body>
 
   <!-- NAVBAR -->
-  <header class="navbar">
-    <h1>I Miei Esami</h1>
+  <header class="navbar" style="justify-content:space-between;padding-left:max(20px,var(--safe-left));padding-right:max(20px,var(--safe-right))">
+    <div>
+      <div id="navGreeting" style="font-size:13px;color:var(--label2);font-weight:500"></div>
+      <h1 style="font-size:20px;font-weight:700;letter-spacing:-0.3px;margin:0;color:var(--label)">I Miei Esami</h1>
+    </div>
+    <button id="dashAddBtn" style="width:36px;height:36px;border-radius:12px;border:none;
+      background:var(--c-blue);color:white;font-size:16px;display:flex;align-items:center;
+      justify-content:center;cursor:pointer;box-shadow:0 3px 10px rgba(0,122,255,0.3)">
+      <i class="fas fa-plus"></i>
+    </button>
   </header>
 
   <!-- MAIN -->
@@ -26,8 +34,7 @@
 
     <!-- ===== DASHBOARD ===== -->
     <div id="view-dashboard" class="app-view">
-      <h2 class="section-title">Panoramica</h2>
-      <div id="overallStatus" class="card-white pill pill-ok" style="margin-bottom:14px"></div>
+      <div id="overallStatus" style="margin-bottom:14px"></div>
       <div id="keyMetricsGrid" class="key-metrics-grid"></div>
 
       <div id="outOfRangeSection" style="display:none; margin-top:20px">

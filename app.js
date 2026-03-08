@@ -39,6 +39,16 @@ document.addEventListener('DOMContentLoaded', () => {
   let tChart = null;
 
   const mainAddBtn = document.getElementById('mainAddBtn');
+  const dashAddBtn = document.getElementById('dashAddBtn');
+
+  // Saluto dinamico nella navbar
+  function updateGreeting() {
+    const el = document.getElementById('navGreeting');
+    if (!el) return;
+    const h = new Date().getHours();
+    el.textContent = h < 12 ? 'Buongiorno 👋' : h < 18 ? 'Buon pomeriggio 👋' : 'Buonasera 👋';
+  }
+  updateGreeting();
 
   // -------------------- PWA --------------------
   try {
@@ -57,6 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.querySelectorAll('.tab-item').forEach(t => t.classList.toggle('active', t.dataset.view === target));
     if (mainAddBtn) mainAddBtn.style.display = (target === 'dashboard') ? 'block' : 'none';
+    if (dashAddBtn) dashAddBtn.style.display = (target === 'dashboard') ? 'flex' : 'none';
 
     if (target === 'trends') renderTrendPage();
     if (target === 'history') renderHistory();
@@ -234,7 +245,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const overall = document.getElementById('overallStatus');
     if (!grid) return;
 
-    // indice generale (su TUTTO il dizionario)
+    // Calcola anomalie su tutto il dizionario
     const anomalies = [];
     dict.forEach(p => {
       const history = getAllValuesForParam(p.name);
@@ -243,54 +254,157 @@ document.addEventListener('DOMContentLoaded', () => {
       if (st.out) anomalies.push({ p, last, st, sev: severityForValue(p, last), history });
     });
 
+    // ---- HERO: Stato generale ----
     if (overall) {
       const c = anomalies.length;
-      const tone = (c === 0) ? 'ok' : (c <= 2 ? 'warn' : 'bad');
-      overall.classList.remove('pill-ok', 'pill-warn', 'pill-bad');
-      overall.classList.add(tone === 'ok' ? 'pill-ok' : tone === 'warn' ? 'pill-warn' : 'pill-bad');
+      const totalWithData = dict.filter(p => getAllValuesForParam(p.name).length > 0).length;
+      const tone = c === 0 ? 'ok' : c <= 2 ? 'warn' : 'bad';
+      const toneColor = tone === 'ok' ? 'var(--c-green)' : tone === 'warn' ? 'var(--c-orange)' : 'var(--c-red)';
+      const toneColorRgb = tone === 'ok' ? '52,199,89' : tone === 'warn' ? '255,149,0' : '255,59,48';
+      const icon = tone === 'ok' ? 'fa-circle-check' : tone === 'warn' ? 'fa-triangle-exclamation' : 'fa-circle-xmark';
+      const lastReport = reports.length > 0 ? sortReportsDesc(reports)[0] : null;
+      const lastDate = lastReport ? new Date(lastReport.date).toLocaleDateString('it-IT', { day:'numeric', month:'long', year:'numeric' }) : null;
+
+      overall.className = '';
+      overall.style.cssText = `
+        margin-bottom: 16px;
+        background: var(--surface);
+        border-radius: var(--radius-xl);
+        padding: 20px;
+        border: 0.33px solid var(--separator);
+        box-shadow: var(--shadow-md);
+        overflow: hidden;
+        position: relative;
+      `;
       overall.innerHTML = `
-        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
-          <div>
-            <div style="font-weight:700; font-size:15px; color:var(--label)">Stato generale</div>
-            <div style="font-size:12px; color:var(--label2); margin-top:2px">
-              ${c === 0 ? 'Nessuna anomalia rilevata' : `${c} anomali${c === 1 ? 'a' : 'e'} sull'ultimo valore`}
+        <div style="position:absolute;top:-20px;right:-20px;width:110px;height:110px;
+          background:rgba(${toneColorRgb},0.08);border-radius:999px;pointer-events:none"></div>
+        <div style="display:flex;align-items:center;gap:14px">
+          <div style="width:52px;height:52px;border-radius:16px;
+            background:rgba(${toneColorRgb},0.12);
+            display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <i class="fas ${icon}" style="font-size:24px;color:${toneColor}"></i>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:19px;font-weight:700;letter-spacing:-0.3px;color:var(--label)">
+              ${c === 0 ? 'Tutto nella norma' : c === 1 ? '1 valore anomalo' : `${c} valori anomali`}
+            </div>
+            <div style="font-size:12px;color:var(--label2);margin-top:3px">
+              ${totalWithData} parametr${totalWithData===1?'o':'i'} monitorati
+              ${lastDate ? `· Ultimo referto ${lastDate}` : ''}
             </div>
           </div>
-          <div style="font-weight:800; font-size:14px; color:var(--label)">${c === 0 ? '🟢 Ottimo' : (c <= 2 ? '🟡 Attenzione' : '🔴 Critico')}</div>
-        </div>`;
+        </div>
+        ${totalWithData > 0 ? `
+        <div style="margin-top:16px;display:flex;gap:6px;align-items:center">
+          <div style="flex:1;height:5px;background:var(--fill3);border-radius:999px;overflow:hidden">
+            <div style="height:100%;width:${Math.round(((totalWithData-c)/Math.max(totalWithData,1))*100)}%;
+              background:${toneColor};border-radius:999px;
+              transition:width 0.6s cubic-bezier(0.34,1.56,0.64,1)"></div>
+          </div>
+          <span style="font-size:11px;font-weight:700;color:${toneColor};flex-shrink:0">
+            ${totalWithData > 0 ? Math.round(((totalWithData-c)/totalWithData)*100) : 100}% OK
+          </span>
+        </div>` : ''}
+      `;
     }
 
-    // 6 card principali
-    grid.innerHTML = dict.slice(0, 6).map(p => {
-      const historyDesc = getAllValuesForParam(p.name);
-      const last = historyDesc[0]?.val ?? null;
-      const prev = historyDesc[1]?.val ?? null;
-      const st = statusForValue(p, last);
-      const sev = severityForValue(p, last);
-      const { delta, pct } = deltaInfo(historyDesc);
-      const sparkline = generateSparkline([...historyDesc].slice(0, 5).reverse(), p.min, p.max);
+    // ---- GRIGLIA PARAMETRI stile iOS Health ----
+    // Mostra tutti i parametri con dati, poi quelli senza dati in fondo (dimmed)
+    const withData    = dict.filter(p => getAllValuesForParam(p.name).length > 0);
+    const withoutData = dict.filter(p => getAllValuesForParam(p.name).length === 0);
+    const orderedDict = [...withData, ...withoutData];
 
-      const deltaTxt = (delta === null) ? 'Δ: —' : `Δ: ${delta > 0 ? '+' : ''}${fmt(delta, p.decimals)}${pct === null ? '' : ` (${fmt(pct, 1)}%)`}`;
-      const sevTxt = st.out ? `• ${sev.label}` : '• OK';
-      const subColor = st.out ? 'var(--danger)' : 'var(--success)';
-      const cardDangerStyle = st.out ? 'border-left-color:var(--c-red) !important; background:rgba(255,59,48,0.05);' : '';
+    grid.innerHTML = orderedDict.map(p => {
+      const historyDesc = getAllValuesForParam(p.name);
+      const last  = historyDesc[0]?.val ?? null;
+      const prev  = historyDesc[1]?.val ?? null;
+      const st    = statusForValue(p, last);
+      const { delta } = deltaInfo(historyDesc);
+
+      // Colore accento della card
+      const accentMap = {
+        'bg-blue':   { color: '#007AFF', rgb: '0,122,255'   },
+        'bg-orange': { color: '#FF9500', rgb: '255,149,0'   },
+        'bg-purple': { color: '#AF52DE', rgb: '175,82,222'  },
+        'bg-green':  { color: '#34C759', rgb: '52,199,89'   },
+        'bg-teal':   { color: '#5AC8FA', rgb: '90,200,250'  },
+        'bg-indigo': { color: '#5856D6', rgb: '88,86,214'   },
+        'bg-red':    { color: '#FF3B30', rgb: '255,59,48'   },
+      };
+      const accent = st.out
+        ? { color: '#FF3B30', rgb: '255,59,48' }
+        : (accentMap[p.color] || { color: '#007AFF', rgb: '0,122,255' });
+
+      // Trend arrow
+      let trendIcon = '', trendColor = 'var(--label3)';
+      if (delta !== null && prev !== null) {
+        if (delta > 0) { trendIcon = '↑'; trendColor = st.out && st.state==='HIGH' ? 'var(--c-red)' : 'var(--c-green)'; }
+        else if (delta < 0) { trendIcon = '↓'; trendColor = st.out && st.state==='LOW' ? 'var(--c-red)' : 'var(--c-green)'; }
+        else { trendIcon = '→'; }
+      }
+
+      // Mini sparkline SVG inline (molto più bella delle barre)
+      const svgSparkline = generateSVGSparkline(historyDesc.slice(0,8).reverse(), p.min, p.max, accent.color);
+
+      const noData = last === null;
 
       return `
-        <div class="metric-card ${p.color}" style="${cardDangerStyle}">
-          <label>${escapeHTML(p.name)}</label>
-          <div style="font-size:22px; font-weight:800; margin:4px 0; letter-spacing:-0.5px; color:var(--label)">
-            ${last !== null ? fmt(last, p.decimals) : '--'}
-            <small style="font-size:12px; font-weight:500; color:var(--label2)">${escapeHTML(p.unit || '')}</small>
+        <div class="metric-card-v2" style="
+          background: var(--surface);
+          border-radius: var(--radius-lg);
+          padding: 14px;
+          border: 0.33px solid var(--separator);
+          box-shadow: var(--shadow-sm);
+          display: flex; flex-direction: column; gap: 6px;
+          min-height: 130px;
+          opacity: ${noData ? '0.45' : '1'};
+          position: relative; overflow: hidden;
+          transition: transform 0.15s, box-shadow 0.15s;
+          cursor: ${noData ? 'default' : 'pointer'};
+        " ontouchstart="this.style.transform='scale(0.97)'" ontouchend="this.style.transform='scale(1)'">
+
+          <!-- Sfondo accent -->
+          <div style="position:absolute;bottom:-16px;right:-16px;width:72px;height:72px;
+            border-radius:999px;background:rgba(${accent.rgb},0.08);pointer-events:none"></div>
+
+          <!-- Header: nome + icona stato -->
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:4px">
+            <div style="font-size:10px;font-weight:700;color:var(--label2);
+              text-transform:uppercase;letter-spacing:0.3px;
+              white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1">
+              ${escapeHTML(p.name)}
+            </div>
+            ${!noData ? `<div style="width:7px;height:7px;border-radius:999px;
+              background:${st.out ? 'var(--c-red)' : 'var(--c-green)'};flex-shrink:0"></div>` : ''}
           </div>
-          <div style="height:22px; display:flex; align-items:flex-end; gap:2px; margin:4px 0">${sparkline}</div>
-          <div class="metric-subrow">
-            <small style="color:${subColor}; font-weight:800; font-size:9px; letter-spacing:0.2px">${st.out ? '● ANOMALO' : (last !== null ? '● NORMALE' : 'NO DATI')}</small>
-            <small style="color:var(--label3); font-weight:700; font-size:9px">${prev !== null ? deltaTxt : 'Δ: —'}</small>
+
+          <!-- Valore principale -->
+          <div style="display:flex;align-items:baseline;gap:4px">
+            <span style="font-size:${last !== null && String(fmt(last,p.decimals)).length > 5 ? '20' : '26'}px;
+              font-weight:800;letter-spacing:-0.8px;
+              color:${st.out ? 'var(--c-red)' : 'var(--label)'}">
+              ${noData ? '—' : fmt(last, p.decimals)}
+            </span>
+            <span style="font-size:11px;font-weight:500;color:var(--label2)">
+              ${escapeHTML(p.unit || '')}
+            </span>
+            ${trendIcon ? `<span style="font-size:12px;font-weight:700;color:${trendColor};margin-left:2px">${trendIcon}</span>` : ''}
+          </div>
+
+          <!-- Sparkline SVG -->
+          <div style="flex:1;display:flex;align-items:flex-end">
+            ${svgSparkline}
+          </div>
+
+          <!-- Footer: range -->
+          <div style="font-size:9px;font-weight:600;color:var(--label3);letter-spacing:0.1px">
+            ${noData ? 'Nessun dato' : (st.out ? `<span style="color:var(--c-red);font-weight:700">${st.state==='HIGH'?'SOPRA':'SOTTO'} RANGE</span>` : formatRange(p))}
           </div>
         </div>`;
     }).join('');
 
-    // Sezione anomalie dettagliata + condivisione
+    // ---- ANOMALIE ----
     if (alertSection && alertList) {
       let alertsHtml = '';
       let shareText = '*REPORT ANOMALIE ESAMI* 📄\n\n';
@@ -299,22 +413,32 @@ document.addEventListener('DOMContentLoaded', () => {
         .forEach(({ p, last, st, sev, history }) => {
           const arrow = st.state === 'HIGH' ? '↑' : '↓';
           const { delta, pct } = deltaInfo(history);
-          const dTxt = (delta === null) ? '' : ` | Δ ${delta > 0 ? '+' : ''}${fmt(delta, p.decimals)}${pct === null ? '' : ` (${fmt(pct, 1)}%)`}`;
+          const dTxt = delta === null ? '' : ` · Δ ${delta > 0 ? '+' : ''}${fmt(delta, p.decimals)}${pct === null ? '' : ` (${fmt(pct,1)}%)`}`;
+          const sevColor = sev.level === 'severe' ? 'var(--c-red)' : sev.level === 'moderate' ? 'var(--c-orange)' : 'var(--c-yellow)';
 
           alertsHtml += `
-            <div class="card-white" style="display:flex; justify-content:space-between; align-items:center; border-left:5px solid var(--c-red); margin-bottom:8px">
+            <div style="background:var(--surface);border-radius:var(--radius-md);
+              border:0.33px solid var(--separator);border-left:4px solid var(--c-red);
+              padding:14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:12px">
               <div style="min-width:0">
-                <b style="font-size:14px; color:var(--label)">${escapeHTML(p.name)}</b><br>
-                <small style="color:var(--label2)">${formatRange(p)}</small><br>
-                <small style="color:var(--label2); font-weight:700">Severità: ${sev.label}${dTxt}</small>
+                <div style="font-size:14px;font-weight:700;color:var(--label)">${escapeHTML(p.name)}</div>
+                <div style="font-size:11px;color:var(--label2);margin-top:2px">${formatRange(p)}${dTxt}</div>
+                <div style="margin-top:6px">
+                  <span style="display:inline-block;padding:3px 8px;border-radius:999px;
+                    font-size:10px;font-weight:800;
+                    background:rgba(255,59,48,0.1);color:${sevColor}">
+                    ${sev.label.toUpperCase()}
+                  </span>
+                </div>
               </div>
-              <div style="text-align:right; color:var(--c-red); flex-shrink:0">
-                <b style="font-size:18px">${fmt(last, p.decimals)} ${arrow}</b><br>
-                <small style="font-size:9px; font-weight:800; letter-spacing:0.3px">${st.state === 'HIGH' ? 'SUPERIORE' : 'INFERIORE'}</small>
+              <div style="text-align:right;flex-shrink:0">
+                <div style="font-size:22px;font-weight:800;color:var(--c-red);letter-spacing:-0.5px">
+                  ${fmt(last, p.decimals)}<span style="font-size:14px">${arrow}</span>
+                </div>
+                <div style="font-size:10px;color:var(--label2);font-weight:600">${escapeHTML(p.unit||'')}</div>
               </div>
             </div>`;
-
-          shareText += `• ${p.name}: ${fmt(last, p.decimals)} ${p.unit || ''} ${arrow} (Range: ${p.min}-${p.max}, Severità: ${sev.label})${dTxt}\n`;
+          shareText += `• ${p.name}: ${fmt(last, p.decimals)} ${p.unit||''} ${arrow} (Range: ${p.min}-${p.max}, Severità: ${sev.label})${dTxt}\n`;
         });
 
       alertSection.style.display = anomalies.length > 0 ? 'block' : 'none';
@@ -322,11 +446,56 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const btnShare = document.getElementById('btnShareAnomalies');
       if (btnShare) {
-        btnShare.onclick = () => {
-          window.open(`whatsapp://send?text=${encodeURIComponent(shareText)}`);
-        };
+        btnShare.onclick = () => window.open(`whatsapp://send?text=${encodeURIComponent(shareText)}`);
       }
     }
+  }
+
+  // ---- SVG Sparkline inline ----
+  function generateSVGSparkline(dataAsc, min, max, accentColor) {
+    if (!dataAsc || dataAsc.length === 0) return '';
+    const W = 100, H = 32;
+    const vals = dataAsc.map(d => d.val);
+    const lo = Math.min(...vals);
+    const hi = Math.max(...vals);
+    const span = (hi - lo) || 1;
+
+    const safeMin = (min === null || min === undefined || min === '') ? null : toNum(min);
+    const safeMax = (max === null || max === undefined || max === '') ? null : toNum(max);
+
+    const xs = dataAsc.map((_, i) => dataAsc.length === 1 ? W/2 : Math.round((i / (dataAsc.length - 1)) * W));
+    const ys = vals.map(v => Math.round(H - 2 - ((v - lo) / span) * (H - 6)));
+
+    // Polyline path
+    const pts = xs.map((x, i) => `${x},${ys[i]}`).join(' ');
+
+    // Area fill path
+    const areaPath = `M${xs[0]},${H} ` + xs.map((x,i) => `L${x},${ys[i]}`).join(' ') + ` L${xs[xs.length-1]},${H} Z`;
+
+    // Punti fuori range
+    const dots = vals.map((v, i) => {
+      const out = (safeMin !== null && v < safeMin) || (safeMax !== null && v > safeMax);
+      return out ? `<circle cx="${xs[i]}" cy="${ys[i]}" r="2.5" fill="var(--c-red)"/>` : '';
+    }).join('');
+
+    const uid = `sp-${Math.random().toString(36).slice(2,7)}`;
+
+    return `
+      <svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="display:block">
+        <defs>
+          <linearGradient id="${uid}" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="${accentColor}" stop-opacity="0.25"/>
+            <stop offset="100%" stop-color="${accentColor}" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <path d="${areaPath}" fill="url(#${uid})"/>
+        <polyline points="${pts}" fill="none" stroke="${accentColor}" stroke-width="1.8"
+          stroke-linecap="round" stroke-linejoin="round"/>
+        ${dataAsc.length === 1 ? `<circle cx="${xs[0]}" cy="${ys[0]}" r="3" fill="${accentColor}"/>` : ''}
+        ${dots}
+        <circle cx="${xs[xs.length-1]}" cy="${ys[ys.length-1]}" r="2.5"
+          fill="${accentColor}" stroke="var(--surface)" stroke-width="1.5"/>
+      </svg>`;
   }
 
   // -------------------- TRENDS --------------------
@@ -700,6 +869,12 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   if (mainAddBtn) mainAddBtn.onclick = () => {
+    editingReportId = null;
+    tempExams = [];
+    if (reportForm) reportForm.reset();
+    openExamModal();
+  };
+  if (dashAddBtn) dashAddBtn.onclick = () => {
     editingReportId = null;
     tempExams = [];
     if (reportForm) reportForm.reset();

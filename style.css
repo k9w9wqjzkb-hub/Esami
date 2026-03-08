@@ -205,13 +205,20 @@ body {
   border: 0.33px solid var(--separator);
 }
 
-/* ---------- METRIC CARDS (DASHBOARD) ---------- */
+/* ---------- METRIC CARDS (DASHBOARD) — v2 --------- */
 .key-metrics-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
 }
 
+/* card v2: stile gestito inline in JS, qui solo overrides generali */
+.metric-card-v2:active {
+  transform: scale(0.97) !important;
+  box-shadow: none !important;
+}
+
+/* Tieni il vecchio .metric-card per retrocompatibilità ma non viene più usato in dashboard */
 .metric-card {
   background: var(--surface);
   border-radius: var(--radius-lg);
@@ -229,12 +236,10 @@ body {
   will-change: transform;
   cursor: pointer;
 }
-
 .metric-card:active {
   transform: scale(0.97);
   box-shadow: none;
 }
-
 .metric-card label {
   font-size: 10px;
   font-weight: 700;
