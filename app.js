@@ -55,14 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('./sw.js');
     }
-  } catch (_) {
-    // no-op
-  }
-
-  // Registra plugin Chart.js necessario per fill tra dataset
-  if (typeof Chart !== 'undefined' && Chart.register && Chart.Filler) {
-    Chart.register(Chart.Filler);
-  }
+  } catch (_) { /* no-op */ }
 
   // -------------------- ROUTING (SPA) --------------------
   function showView(target) {
@@ -562,67 +555,71 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       // Banda verde range min/max
-      // Nota: hasMin deve accettare anche min=0 (es. Colesterolo LDL min=0)
       const hasMin = pConfig != null && pConfig.min !== null && pConfig.min !== undefined && pConfig.min !== '' && Number.isFinite(Number(pConfig.min));
       const hasMax = pConfig != null && pConfig.max !== null && pConfig.max !== undefined && pConfig.max !== '' && Number.isFinite(Number(pConfig.max));
       const minVal = hasMin ? Number(pConfig.min) : null;
       const maxVal = hasMax ? Number(pConfig.max) : null;
 
-      /** @type {any[]} */
-      const datasets = [];
-
-      // Serve almeno 2 punti sull'asse X per riempire l'area
       const xLabels = pts.length >= 2 ? pts.map(p => p.x)
                     : pts.length === 1 ? [pts[0].x, pts[0].x]
                     : ['A', 'B'];
       const n = xLabels.length;
 
-      // Stile linea tratteggiata verde (segment è l'API corretta in Chart.js v3/v4)
-      const dashedLine = {
-        borderColor: 'rgba(52,199,89,0.7)',
-        borderWidth: 1.5,
-        pointRadius: 0,
-        pointHitRadius: 0,
-        tension: 0,
-        segment: { borderDash: () => [6, 4] },
-      };
+      const datasets = [];
 
-      if (mode === 'values' && (hasMin || hasMax)) {
-        if (hasMin && hasMax) {
-          // Dataset indice 0: linea MIN (base del fill)
-          datasets.push({
-            label: 'MIN_BAND',
-            data: Array(n).fill(minVal),
-            fill: false,
-            ...dashedLine,
-          });
-          // Dataset indice 1: linea MAX, riempie verso indice 0
-          datasets.push({
-            label: 'MAX_BAND',
-            data: Array(n).fill(maxVal),
-            fill: 0,  // riempie verso dataset[0] = MIN_BAND
-            backgroundColor: 'rgba(52,199,89,0.12)',
-            ...dashedLine,
-          });
-        } else if (hasMax) {
-          datasets.push({
-            label: 'MAX_BAND',
-            data: Array(n).fill(maxVal),
-            fill: false,
-            ...dashedLine,
-          });
-        } else {
-          // hasMin only
-          datasets.push({
-            label: 'MIN_BAND',
-            data: Array(n).fill(minVal),
-            fill: false,
-            ...dashedLine,
-          });
-        }
+      if (mode === 'values' && hasMin && hasMax) {
+        // Dataset 0: linea MIN — base del fill
+        datasets.push({
+          label: 'MIN_BAND',
+          data: Array(n).fill(minVal),
+          borderColor: 'rgba(52,199,89,0.8)',
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHitRadius: 0,
+          fill: false,
+          tension: 0,
+          segment: { borderDash: () => [6, 4] },
+        });
+        // Dataset 1: linea MAX — fill verso dataset[0]
+        datasets.push({
+          label: 'MAX_BAND',
+          data: Array(n).fill(maxVal),
+          borderColor: 'rgba(52,199,89,0.8)',
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHitRadius: 0,
+          backgroundColor: 'rgba(52,199,89,0.15)',
+          fill: 0,
+          tension: 0,
+          segment: { borderDash: () => [6, 4] },
+        });
+      } else if (mode === 'values' && hasMax) {
+        datasets.push({
+          label: 'MAX_BAND',
+          data: Array(n).fill(maxVal),
+          borderColor: 'rgba(52,199,89,0.8)',
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHitRadius: 0,
+          fill: false,
+          tension: 0,
+          segment: { borderDash: () => [6, 4] },
+        });
+      } else if (mode === 'values' && hasMin) {
+        datasets.push({
+          label: 'MIN_BAND',
+          data: Array(n).fill(minVal),
+          borderColor: 'rgba(52,199,89,0.8)',
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHitRadius: 0,
+          fill: false,
+          tension: 0,
+          segment: { borderDash: () => [6, 4] },
+        });
       }
 
-      // Dataset dati reali — sempre in ultimo (sopra la banda)
+      // Dataset valori reali — sempre in ultimo
       const mainData = pts.length === 1 ? [series[0], series[0]] : series;
       datasets.push({
         label,

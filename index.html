@@ -325,6 +325,14 @@
   </nav>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    // Registra il plugin Filler subito dopo Chart.js, prima di app.js
+    // Necessario per fill tra dataset (banda range verde nel grafico trend)
+    if (typeof Chart !== 'undefined') {
+      if (Chart.Filler) Chart.register(Chart.Filler);
+      // In alcuni bundle CDN il Filler è già auto-registrato ma non fa male rifarlo
+    }
+  </script>
   <script src="app.js"></script>
 </body>
 </html>
