@@ -58,6 +58,17 @@ document.addEventListener('DOMContentLoaded', () => {
   } catch (_) { /* no-op */ }
 
   // -------------------- ROUTING (SPA) --------------------
+  function openTrend(paramName) {
+    showView('trends');
+    const sel = document.getElementById('trendParamSelector');
+    if (!sel) return;
+    setTimeout(() => {
+      sel.value = paramName;
+      sel.dispatchEvent(new Event('change'));
+    }, 30);
+  }
+  window.openTrend = openTrend;
+
   function showView(target) {
     document.querySelectorAll('.app-view').forEach(v => v.style.display = 'none');
     const targetView = document.getElementById(`view-${target}`);
@@ -355,8 +366,6 @@ document.addEventListener('DOMContentLoaded', () => {
         else { trendIcon = '→'; }
       }
 
-      const svgSparkline = generateSVGSparkline(historyDesc.slice(0,8).reverse(), p.min, p.max, accent.color);
-
       const noData = last === null;
       const sev = severityForValue(p, last);
 
@@ -374,60 +383,62 @@ document.addEventListener('DOMContentLoaded', () => {
            :                            '1.5px solid var(--c-yellow)')
           : '1.5px solid var(--c-green)';
 
+      const safeParam = p.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
       return `
         <div class="metric-card-v2" style="
           background: var(--surface);
           border-radius: var(--radius-lg);
-          padding: 14px;
+          padding: 16px;
           border: ${cardBorder};
           box-shadow: var(--shadow-sm);
-          display: flex; flex-direction: column; gap: 6px;
-          min-height: 130px;
+          display: flex; flex-direction: column; justify-content: space-between; gap: 8px;
+          min-height: 120px;
           opacity: ${noData ? '0.45' : '1'};
           position: relative; overflow: hidden;
           transition: transform 0.15s, box-shadow 0.15s;
           cursor: ${noData ? 'default' : 'pointer'};
-        " ontouchstart="this.style.transform='scale(0.97)'" ontouchend="this.style.transform='scale(1)'">
+        "
+        ${!noData ? `onclick="openTrend('${safeParam}')"` : ''}
+        ontouchstart="this.style.transform='scale(0.97)'"
+        ontouchend="this.style.transform='scale(1)'">
 
           <!-- Sfondo accent -->
-          <div style="position:absolute;bottom:-16px;right:-16px;width:72px;height:72px;
-            border-radius:999px;background:rgba(${accent.rgb},0.08);pointer-events:none"></div>
+          <div style="position:absolute;bottom:-16px;right:-16px;width:64px;height:64px;
+            border-radius:999px;background:rgba(${accent.rgb},0.07);pointer-events:none"></div>
 
           <!-- Header: nome + pallino stato -->
           <div style="display:flex;align-items:center;justify-content:space-between;gap:4px">
-            <div style="font-size:10px;font-weight:700;color:var(--label2);
-              text-transform:uppercase;letter-spacing:0.3px;
+            <div style="font-size:15px;font-weight:700;color:var(--label2);
+              text-transform:uppercase;letter-spacing:0.4px;
               white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1">
               ${escapeHTML(p.name)}
             </div>
-            ${!noData ? `<div style="width:7px;height:7px;border-radius:999px;
+            ${!noData ? `<div style="width:8px;height:8px;border-radius:999px;
               background:${st.out ? 'var(--c-red)' : 'var(--c-green)'};flex-shrink:0"></div>` : ''}
           </div>
 
-          <!-- Valore principale -->
-          <div style="display:flex;align-items:baseline;gap:4px">
-            <span style="font-size:${last !== null && String(fmt(last,p.decimals)).length > 5 ? '20' : '26'}px;
-              font-weight:800;letter-spacing:-0.8px;
+          <!-- Valore principale + trend -->
+          <div style="display:flex;align-items:baseline;gap:5px">
+            <span style="font-size:${last !== null && String(fmt(last,p.decimals)).length > 5 ? '24' : '32'}px;
+              font-weight:800;letter-spacing:-1px;
               color:${st.out ? 'var(--c-red)' : 'var(--label)'}">
               ${noData ? '—' : fmt(last, p.decimals)}
             </span>
-            <span style="font-size:11px;font-weight:500;color:var(--label2)">
+            <span style="font-size:13px;font-weight:500;color:var(--label2)">
               ${escapeHTML(p.unit || '')}
             </span>
-            ${trendIcon ? `<span style="font-size:12px;font-weight:700;color:${trendColor};margin-left:2px">${trendIcon}</span>` : ''}
-          </div>
-
-          <!-- Sparkline SVG -->
-          <div style="flex:1;display:flex;align-items:flex-end">
-            ${svgSparkline}
+            ${trendIcon ? `<span style="font-size:14px;font-weight:700;color:${trendColor};margin-left:2px">${trendIcon}</span>` : ''}
           </div>
 
           <!-- Footer: range + data -->
           <div style="display:flex;justify-content:space-between;align-items:center;gap:4px">
-            <div style="font-size:9px;font-weight:600;color:var(--label3);letter-spacing:0.1px">
-              ${noData ? 'Nessun dato' : (st.out ? `<span style="color:${sev.level==='severe'?'var(--c-red)':sev.level==='moderate'?'var(--c-orange)':'var(--c-yellow)'};font-weight:700">${st.state==='HIGH'?'↑ SOPRA':'↓ SOTTO'} RANGE</span>` : formatRange(p))}
+            <div style="font-size:11px;font-weight:600;color:var(--label3);letter-spacing:0.1px">
+              ${noData ? 'Nessun dato' : (st.out
+                ? `<span style="color:${sev.level==='severe'?'var(--c-red)':sev.level==='moderate'?'var(--c-orange)':'var(--c-yellow)'};font-weight:700">${st.state==='HIGH'?'↑ SOPRA':'↓ SOTTO'} RANGE</span>`
+                : formatRange(p))}
             </div>
-            ${lastDate ? `<div style="font-size:9px;color:var(--label3);font-weight:500;flex-shrink:0">${lastDate}</div>` : ''}
+            ${lastDate ? `<div style="font-size:14px;color:var(--label3);font-weight:500;flex-shrink:0">${lastDate}</div>` : ''}
           </div>
         </div>`;
     }).join('');
